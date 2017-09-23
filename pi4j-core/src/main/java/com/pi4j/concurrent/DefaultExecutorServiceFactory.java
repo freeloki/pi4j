@@ -5,24 +5,24 @@ package com.pi4j.concurrent;
  * **********************************************************************
  * ORGANIZATION  :  Pi4J
  * PROJECT       :  Pi4J :: Java Library (Core)
- * FILENAME      :  DefaultExecutorServiceFactory.java  
- * 
- * This file is part of the Pi4J project. More information about 
+ * FILENAME      :  DefaultExecutorServiceFactory.java
+ *
+ * This file is part of the Pi4J project. More information about
  * this project can be found here:  http://www.pi4j.com/
  * **********************************************************************
  * %%
- * Copyright (C) 2012 - 2016 Pi4J
+ * Copyright (C) 2012 - 2017 Pi4J
  * %%
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -32,7 +32,6 @@ package com.pi4j.concurrent;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -41,7 +40,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class DefaultExecutorServiceFactory implements ExecutorServiceFactory {
 
-    public static int MAX_THREADS_IN_POOL = 25;
+    private static int MAX_THREADS_IN_POOL = 25;
     private static List<ExecutorService> singleThreadExecutorServices = new ArrayList<>();
 
     // this seemingly odd pattern is the recommended way to lazy-initialize static fields in effective java.
@@ -80,7 +79,7 @@ public class DefaultExecutorServiceFactory implements ExecutorServiceFactory {
      * return an instance to the thread factory used to create new executor services
      */
     private static ThreadFactory getThreadFactory(final String nameFormat) {
-        final ThreadFactory defaultThreadFactory = Executors.defaultThreadFactory();
+        final ThreadFactory defaultThreadFactory = Executors.privilegedThreadFactory();
         return new ThreadFactory() {
             final AtomicLong count = (nameFormat != null) ? new AtomicLong(0) : null;
 
@@ -99,7 +98,7 @@ public class DefaultExecutorServiceFactory implements ExecutorServiceFactory {
      * return an instance to the scheduled executor service (wrapper)
      */
     public ScheduledExecutorService getScheduledExecutorService() {
-        // we return the protected wrapper to prevent any consumers from 
+        // we return the protected wrapper to prevent any consumers from
         // being able to shutdown the scheduled executor service
         return getScheduledExecutorServiceWrapper();
     }

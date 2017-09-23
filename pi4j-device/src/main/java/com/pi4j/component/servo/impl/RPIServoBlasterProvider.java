@@ -5,24 +5,24 @@ package com.pi4j.component.servo.impl;
  * **********************************************************************
  * ORGANIZATION  :  Pi4J
  * PROJECT       :  Pi4J :: Device Abstractions
- * FILENAME      :  RPIServoBlasterProvider.java  
- * 
- * This file is part of the Pi4J project. More information about 
+ * FILENAME      :  RPIServoBlasterProvider.java
+ *
+ * This file is part of the Pi4J project. More information about
  * this project can be found here:  http://www.pi4j.com/
  * **********************************************************************
  * %%
- * Copyright (C) 2012 - 2016 Pi4J
+ * Copyright (C) 2012 - 2017 Pi4J
  * %%
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -49,7 +49,7 @@ import com.pi4j.io.gpio.RaspiPin;
 
 /**
  * Implementation of https://github.com/richardghirst/PiBits/tree/master/ServoBlaster
- * 
+ *
  *
  * @author Daniel Sendula
  */
@@ -83,6 +83,18 @@ public class RPIServoBlasterProvider implements ServoProvider {
     public static final String PIN_P1_25 = "P1-25";
     public static final String PIN_P1_26 = "P1-26";
 
+    public static final String PIN_P1_27 = "P1-27";
+    public static final String PIN_P1_28 = "P1-28";
+    public static final String PIN_P1_29 = "P1-29";
+    public static final String PIN_P1_31 = "P1-31";
+    public static final String PIN_P1_32 = "P1-32";
+    public static final String PIN_P1_33 = "P1-33";
+    public static final String PIN_P1_35 = "P1-35";
+    public static final String PIN_P1_36 = "P1-36";
+    public static final String PIN_P1_37 = "P1-37";
+    public static final String PIN_P1_38 = "P1-38";
+    public static final String PIN_P1_40 = "P1-40";
+
     public static final String PIN_P5_3 = "P5-3";
     public static final String PIN_P5_4 = "P5-4";
     public static final String PIN_P5_5 = "P5-5";
@@ -90,10 +102,10 @@ public class RPIServoBlasterProvider implements ServoProvider {
 
     public static Map<Pin, String> PIN_MAP;
     public static Map<String, Pin> REVERSE_PIN_MAP;
-    
+
     static {
-        PIN_MAP = new HashMap<Pin, String>();
-        REVERSE_PIN_MAP = new HashMap<String, Pin>();
+        PIN_MAP = new HashMap<>();
+        REVERSE_PIN_MAP = new HashMap<>();
         definePin(RaspiPin.GPIO_08, PIN_P1_3);
         definePin(RaspiPin.GPIO_09, PIN_P1_5);
         definePin(RaspiPin.GPIO_07, PIN_P1_7);
@@ -114,26 +126,38 @@ public class RPIServoBlasterProvider implements ServoProvider {
         definePin(RaspiPin.GPIO_18, PIN_P5_4);
         definePin(RaspiPin.GPIO_19, PIN_P5_5);
         definePin(RaspiPin.GPIO_20, PIN_P5_6);
+
+        definePin(RaspiPin.GPIO_30, PIN_P1_27);
+        definePin(RaspiPin.GPIO_31, PIN_P1_28);
+        definePin(RaspiPin.GPIO_21, PIN_P1_29);
+        definePin(RaspiPin.GPIO_22, PIN_P1_31);
+        definePin(RaspiPin.GPIO_26, PIN_P1_32);
+        definePin(RaspiPin.GPIO_23, PIN_P1_33);
+        definePin(RaspiPin.GPIO_24, PIN_P1_35);
+        definePin(RaspiPin.GPIO_27, PIN_P1_36);
+        definePin(RaspiPin.GPIO_25, PIN_P1_37);
+        definePin(RaspiPin.GPIO_28, PIN_P1_38);
+        definePin(RaspiPin.GPIO_29, PIN_P1_40);
     }
 
     static void definePin(Pin pin, String s) {
         PIN_MAP.put(pin, s);
         REVERSE_PIN_MAP.put(s, pin);
     }
-    
+
     public static final String SERVO_BLASTER_DEV = "/dev/servoblaster";
     public static final String SERVO_BLASTER_DEV_CFG = "/dev/servoblaster-cfg";
-    
+
     protected File servoBlasterDev;
     protected File servoBlasterDevCfg;
-    
+
     protected Writer writer;
-    
-    protected Map<Pin, RPIServoBlasterServoDriver> allocatedDrivers = new HashMap<Pin, RPIServoBlasterServoDriver>();
-    
+
+    protected Map<Pin, RPIServoBlasterServoDriver> allocatedDrivers = new HashMap<>();
+
     /**
      * Constructor. It checks if /dev/servoblaster file exists.
-     * 
+     *
      * @throws IOException thrown in case file /dev/servoblaster does not exist.
      */
     public RPIServoBlasterProvider() throws IOException {
@@ -147,11 +171,12 @@ public class RPIServoBlasterProvider implements ServoProvider {
             throw new FileNotFoundException("File " + SERVO_BLASTER_DEV_CFG + " is not present." +
                     " Please check https://github.com/richardghirst/PiBits/tree/master/ServoBlaster for details.");
         }
-        
+
     }
-    
+
+    @Override
     public List<Pin> getDefinedServoPins() throws IOException {
-        List<Pin> servoPins = new ArrayList<Pin>();
+        List<Pin> servoPins = new ArrayList<>();
         FileReader in = new FileReader(servoBlasterDevCfg);
         try {
             @SuppressWarnings("unused")
@@ -159,7 +184,7 @@ public class RPIServoBlasterProvider implements ServoProvider {
             @SuppressWarnings("unused")
             String p5pins = null;
             boolean mappingStarted = false;
-            
+
             @SuppressWarnings("resource")
             BufferedReader reader = new BufferedReader(in);
 
@@ -174,7 +199,7 @@ public class RPIServoBlasterProvider implements ServoProvider {
                             String pin = line.substring(i + 4).trim();
                             i = pin.indexOf(' ');
                             pin = pin.substring(0, i);
-                            
+
                             Pin gpio = REVERSE_PIN_MAP.get(pin);
                             if (gpio != null) {
                                 if (index == servoPins.size()) {
@@ -190,7 +215,7 @@ public class RPIServoBlasterProvider implements ServoProvider {
                             } else {
                                 System.err.println("Unrecognised pin " + pin);
                             }
-                            
+
                         } catch (NumberFormatException ignore) { }
                     }
                 } else {
@@ -214,13 +239,14 @@ public class RPIServoBlasterProvider implements ServoProvider {
         }
         return servoPins;
     }
-    
+
     /**
      * Returns new instance of {@link RPIServoBlasterServoDriver}.
-     * 
+     *
      * @param servoPin servo pin.
      * @return instance of {@link RPIServoBlasterServoDriver}.
      */
+    @Override
     public synchronized ServoDriver getServoDriver(Pin servoPin) throws IOException {
         List<Pin> servoPins = getDefinedServoPins();
         int index = servoPins.indexOf(servoPin);
@@ -233,7 +259,7 @@ public class RPIServoBlasterProvider implements ServoProvider {
             driver = new RPIServoBlasterServoDriver(servoPin, index, PIN_MAP.get(servoPin), this);
             ensureWriterIsCreated();
         }
-        
+
         return driver;
     }
 
@@ -243,7 +269,7 @@ public class RPIServoBlasterProvider implements ServoProvider {
             writer = new FileWriter(servoBlasterDev);
         }
     }
-    
+
     protected synchronized void updateServo(String pinName, int value) {
         StringBuilder b = new StringBuilder();
         b.append(pinName).append('=').append(Integer.toString(value)).append('\n');

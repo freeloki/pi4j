@@ -5,24 +5,24 @@ package com.pi4j.component.servo.impl;
  * **********************************************************************
  * ORGANIZATION  :  Pi4J
  * PROJECT       :  Pi4J :: Device Abstractions
- * FILENAME      :  GenericServo.java  
- * 
- * This file is part of the Pi4J project. More information about 
+ * FILENAME      :  GenericServo.java
+ *
+ * This file is part of the Pi4J project. More information about
  * this project can be found here:  http://www.pi4j.com/
  * **********************************************************************
  * %%
- * Copyright (C) 2012 - 2016 Pi4J
+ * Copyright (C) 2012 - 2017 Pi4J
  * %%
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Lesser Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Lesser Public
  * License along with this program.  If not, see
  * <http://www.gnu.org/licenses/lgpl-3.0.html>.
@@ -45,7 +45,7 @@ public class GenericServo extends ComponentBase implements Servo {
     public enum Orientation {
         LEFT, RIGHT
     }
-        
+
     public static final float PWM_MIN = 900; // in micro seconds
     public static final float PWM_NEUTRAL = 1500; // in micro seconds
     public static final float PWM_MAX = 2100; // in micro seconds
@@ -61,7 +61,7 @@ public class GenericServo extends ComponentBase implements Servo {
     public GenericServo(ServoDriver servoDriver, String name) {
         this(servoDriver, name, null);
     }
-    
+
     public GenericServo(ServoDriver servoDriver, String name, Map<String, String> properties) {
         setServoDriver(servoDriver);
         setName(name);
@@ -124,15 +124,15 @@ public class GenericServo extends ComponentBase implements Servo {
         }
         float endPointValue = Float.parseFloat(getProperty(propertyName, PROP_END_POINT_DEFAULT));
         validateEndPoint(endPointValue, propertyName);
-        
+
         float calculatedPwmDuration;
         if (orientation == Orientation.LEFT) {
             calculatedPwmDuration = calculateNeutralPwmDuration() - ((PWM_MAX - PWM_NEUTRAL) / 150 * endPointValue);
         } else {
             calculatedPwmDuration = calculateNeutralPwmDuration() + ((PWM_MAX - PWM_NEUTRAL) / 150 * endPointValue);
         }
-        
-        
+
+
         if (calculatedPwmDuration < PWM_MIN) {
             result = PWM_MIN;
         } else if (calculatedPwmDuration > PWM_MAX) {
@@ -174,9 +174,10 @@ public class GenericServo extends ComponentBase implements Servo {
     @Override
     public String toString() {
         StringBuilder result = new StringBuilder();
-        result.append("Position [" + position + "]");
+        result.append("Position [").append(position).append("]");
         for (Entry<String, String> property : getProperties().entrySet()) {
-            result.append(", " + property.getKey() + " [" + property.getValue() + "]");
+            result.append(", ").append(property.getKey())
+                .append(" [").append(property.getValue()).append("]");
         }
         return result.toString();
     }

@@ -3,13 +3,13 @@
  * **********************************************************************
  * ORGANIZATION  :  Pi4J
  * PROJECT       :  Pi4J :: JNI Native Library
- * FILENAME      :  com_pi4j_wiringpi_Gpio.c  
+ * FILENAME      :  com_pi4j_wiringpi_Gpio.c
  * 
- * This file is part of the Pi4J project. More information about 
+ * This file is part of the Pi4J project. More information about
  * this project can be found here:  http://www.pi4j.com/
  * **********************************************************************
  * %%
- * Copyright (C) 2012 - 2015 Pi4J
+ * Copyright (C) 2012 - 2017 Pi4J
  * %%
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as
@@ -33,10 +33,11 @@
 #include "com_pi4j_wiringpi_Gpio.h"
 #include "com_pi4j_wiringpi_GpioInterrupt.h"
 
-/* Source for com_pi4j_wiringpi_Gpio */
+// java ISR callback variables
+jclass isr_callback_class;
+jmethodID isr_callback_method;
 
-// java callback variables
-JavaVM *callback_jvm;
+/* Source for com_pi4j_wiringpi_Gpio */
 
 /*
  * Class:     com_pi4j_wiringpi_Gpio
@@ -46,9 +47,9 @@ JavaVM *callback_jvm;
 JNIEXPORT jint JNICALL Java_com_pi4j_wiringpi_Gpio_wiringPiSetup
   (JNIEnv *env, jclass obj)
 {
+	wiringpi_init_mode = WPI_MODE_PINS;
 	return wiringPiSetup();
 }
-  
 
 /*
  * Class:     com_pi4j_wiringpi_Gpio
@@ -58,6 +59,7 @@ JNIEXPORT jint JNICALL Java_com_pi4j_wiringpi_Gpio_wiringPiSetup
 JNIEXPORT jint JNICALL Java_com_pi4j_wiringpi_Gpio_wiringPiSetupSys
 (JNIEnv *env, jclass obj)
 {
+    wiringpi_init_mode = WPI_MODE_GPIO_SYS;
 	return wiringPiSetupSys();
 }
 
@@ -69,6 +71,7 @@ JNIEXPORT jint JNICALL Java_com_pi4j_wiringpi_Gpio_wiringPiSetupSys
 JNIEXPORT jint JNICALL Java_com_pi4j_wiringpi_Gpio_wiringPiSetupGpio
 (JNIEnv *env, jclass obj)
 {
+	wiringpi_init_mode = WPI_MODE_GPIO;
 	return wiringPiSetupGpio();
 }
 
@@ -80,6 +83,7 @@ JNIEXPORT jint JNICALL Java_com_pi4j_wiringpi_Gpio_wiringPiSetupGpio
 JNIEXPORT jint JNICALL Java_com_pi4j_wiringpi_Gpio_wiringPiSetupPhys
   (JNIEnv *env, jclass obj)
 {
+    wiringpi_init_mode = WPI_MODE_PHYS;
     return wiringPiSetupPhys();
 }
 
@@ -91,7 +95,18 @@ JNIEXPORT jint JNICALL Java_com_pi4j_wiringpi_Gpio_wiringPiSetupPhys
 JNIEXPORT void JNICALL Java_com_pi4j_wiringpi_Gpio_pinMode
 (JNIEnv *env, jclass obj, jint pin, jint mode)
 {
-	return pinMode(pin, mode);
+	pinMode(pin, mode);
+}
+
+/*
+ * Class:     com_pi4j_wiringpi_Gpio
+ * Method:    pinModeAlt
+ * Signature: (II)V
+ */
+JNIEXPORT void JNICALL Java_com_pi4j_wiringpi_Gpio_pinModeAlt
+(JNIEnv *env, jclass obj, jint pin, jint mode)
+{
+	pinModeAlt(pin, mode);
 }
 
 /*
@@ -171,7 +186,6 @@ JNIEXPORT void JNICALL Java_com_pi4j_wiringpi_Gpio_delay
 	delay(milliseconds);
 }
 
-
 /*
  * Class:     com_pi4j_wiringpi_Gpio
  * Method:    millis
@@ -182,7 +196,6 @@ JNIEXPORT jlong JNICALL Java_com_pi4j_wiringpi_Gpio_millis
 {
 	return millis();
 }
-
 
 /*
  * Class:     com_pi4j_wiringpi_Gpio
@@ -195,7 +208,6 @@ JNIEXPORT jlong JNICALL Java_com_pi4j_wiringpi_Gpio_micros
     return micros();
 }
 
-
 /*
  * Class:     com_pi4j_wiringpi_Gpio
  * Method:    delayMicroseconds
@@ -206,7 +218,6 @@ JNIEXPORT void JNICALL Java_com_pi4j_wiringpi_Gpio_delayMicroseconds
 {
 	delayMicroseconds(howLong);
 }
-
 
 /*
  * Class:     com_pi4j_wiringpi_Gpio
@@ -230,46 +241,49 @@ JNIEXPORT jint JNICALL Java_com_pi4j_wiringpi_Gpio_waitForInterrupt
 	return waitForInterrupt(pin, timeOut);
 }
 
-// monitoring thread data structure
-struct callback_data{
-    int pin;
-    jclass class;
-    jmethodID method;
-};
-
-// monitoring thread data structure array
-struct callback_data callbacks[MAX_GPIO_PINS];
-
 void CallbackWrapperFunc(int pin)
 {
-  if(pin < MAX_GPIO_PINS)
-  {
-    // get attached JVM
-    JNIEnv *env;
-    (*callback_jvm)->AttachCurrentThread(callback_jvm, (void **)&env, NULL);
+    // validate pin range
+    if(pin > MAX_GPIO_PINS){
+        printf("NATIVE (wiringPiISR) ERROR; CallbackWrapperFunc pin number exceeds MAX_GPIO_PINS.\n");
+        return;
+    }
 
     // ensure that the JVM exists
-    if(callback_jvm != NULL)
-    {
-        // clear any exceptions on the stack
-        (*env)->ExceptionClear(env);
+    if(gpio_callback_jvm == NULL){
+        printf("NATIVE (wiringPiISR) ERROR; CallbackWrapperFunc 'gpio_callback_jvm' is NULL.\n");
+        return;
+    }
 
-        // invoke the callback method in the callback interface
-        (*env)->CallVoidMethod(env, callbacks[pin].class, callbacks[pin].method, pin);
+    // ensure the ISR callback class is available
+    if (isr_callback_class == NULL){
+        printf("NATIVE (wiringPiISR) ERROR; CallbackWrapperFunc 'isr_callback_class' is NULL.\n");
+        return;
+    }
 
-        // clear any user caused exceptions on the stack
-        if((*env)->ExceptionCheck(env)){
-          (*env)->ExceptionClear(env);
-        }
+    // ensure the ISR callback method is available
+    if (isr_callback_method == NULL){
+        printf("NATIVE (wiringPiISR) ERROR; CallbackWrapperFunc 'isr_callback_class' is NULL.\n");
+        return;
+    }
+
+    // attached to JVM thread
+    JNIEnv *env;
+    (*gpio_callback_jvm)->AttachCurrentThread(gpio_callback_jvm, (void **)&env, NULL);
+
+    // clear any exceptions on the stack
+    (*env)->ExceptionClear(env);
+
+    // invoke callback to java state method to notify event listeners
+    (*env)->CallStaticVoidMethod(env, isr_callback_class, isr_callback_method, (jint)pin);
+
+    // clear any user caused exceptions on the stack
+    if((*env)->ExceptionCheck(env)){
+      (*env)->ExceptionClear(env);
     }
 
     // detach from thread
-    (*callback_jvm)->DetachCurrentThread(callback_jvm);
-  }
-  else
-  {
-    printf("NATIVE (wiringPiISR) ERROR; CallbackWrapperFunc pin number exceeds MAX_GPIO_PINS.\n");
-  }
+    (*gpio_callback_jvm)->DetachCurrentThread(gpio_callback_jvm);
 }
 
 void cwf_0()  { CallbackWrapperFunc(0);  }
@@ -324,39 +338,56 @@ void cwf_48() { CallbackWrapperFunc(48); }
 void cwf_49() { CallbackWrapperFunc(49); }
 void cwf_50() { CallbackWrapperFunc(50); }
 
-
 /*
  * Class:     com_pi4j_wiringpi_Gpio
- * Method:    wiringPiISR
- * Signature: (IILcom/pi4j/wiringpi/GpioInterruptCallback;)I
+ * Method:    _wiringPiISR
+ * Signature: (II)I
  */
-JNIEXPORT jint JNICALL Java_com_pi4j_wiringpi_Gpio_wiringPiISR
-  (JNIEnv *env, jclass obj, jint pin, jint mode, jobject callbackInterface)
+JNIEXPORT jint JNICALL Java_com_pi4j_wiringpi_Gpio__1wiringPiISR
+  (JNIEnv *env, jclass obj, jint pin, jint mode)
 {
     //printf("NATIVE (wiringPiISR) LISTEN FOR INTERRUPTS ON PIN: %d.\n", pin);
 
-    jclass clbk_class = (*env)->GetObjectClass(env, callbackInterface);
-    if(clbk_class == NULL){
-        printf("NATIVE (wiringPiISR) ERROR; JNI could not get 'callback' class.\n");
-        return -999;
-    }
-
-    jmethodID clbk_method = (*env)->GetMethodID(env, clbk_class, "callback", "(I)V");
-    if(clbk_method == NULL){
-        printf("NATIVE (wiringPiISR) ERROR; JNI could not get 'callback' method id.\n");
-        return -998;
-    }
-
-    // setup pin callback data structure
-    callbacks[pin].class = clbk_class;
-    callbacks[pin].method = clbk_method;
-
+    // ensure requested pin in in valid range
     if(pin > MAX_GPIO_PINS)
     {
         printf("NATIVE (wiringPiISR) ERROR; unsupported pin number; exceeds MAX_GPIO_PINS.\n");
         return -997;
     }
 
+    // if the ISR callback class has not previsouly been configiured, then establish it now
+    if (isr_callback_class == NULL){
+        jclass cls;
+
+        // search the attached java environment for the 'Gpio' class
+        cls = (*env)->FindClass(env, "com/pi4j/wiringpi/Gpio");
+        if (cls == NULL)
+        {
+            // expected class not found
+            printf("NATIVE (wiringPiISR) ERROR; Gpio class not found.\n");
+            return JNI_ERR;
+        }
+
+        // use weak global ref to allow C class to be unloaded
+        isr_callback_class = (*env)->NewWeakGlobalRef(env, cls);
+        if (isr_callback_class == NULL)
+        {
+    	    // unable to create weak reference to java class
+    	    printf("NATIVE (wiringPiISR) ERROR; Java class reference is NULL.\n");
+            return JNI_ERR;
+        }
+    }
+
+    // lookup and cache the static method ID for the 'isrCallback' callback
+    isr_callback_method = (*env)->GetStaticMethodID(env, isr_callback_class, "isrCallback", "(I)V");
+    if (isr_callback_method == NULL)
+    {
+    	// callback method could not be found in attached java class
+    	printf("NATIVE (wiringPiISR) ERROR; Static method 'Gpio.isrCallback(pin)' could not be found.\n");
+        return JNI_ERR;
+    }
+
+    // setup the real wiringPiISR function with explicit callback method reference
     switch(pin){
         case 0:  { return wiringPiISR(pin, mode, &cwf_0);  }
         case 1:  { return wiringPiISR(pin, mode, &cwf_1);  }
@@ -415,8 +446,6 @@ JNIEXPORT jint JNICALL Java_com_pi4j_wiringpi_Gpio_wiringPiISR
     printf("NATIVE (wiringPiISR) ERROR; unsupported pin number.\n");
     return -996;
 }
-
-
 
 /*
  * Class:     com_pi4j_wiringpi_Gpio
@@ -504,4 +533,15 @@ JNIEXPORT void JNICALL Java_com_pi4j_wiringpi_Gpio_setPadDrive
   (JNIEnv *env, jclass obj, jint group, jint value)
 {
     setPadDrive(group, value);
+}
+
+/*
+ * Class:     com_pi4j_wiringpi_Gpio
+ * Method:    getAlt
+ * Signature: (I)I
+ */
+JNIEXPORT jint JNICALL Java_com_pi4j_wiringpi_Gpio_getAlt
+  (JNIEnv *env, jclass obj, jint pin)
+{
+    return (jint) getAlt(pin);
 }
